@@ -139,11 +139,11 @@ class CRPlot:
         self.framerate = 1000/refresh_interval
         plt.gcf().autofmt_xdate()
         plt.show()
-    
+
 
     def serialStream(self):
 
-        # set data streaming mode
+        # set data streaming mode on CR (assuming it was off)
         self.serialConnection.write(b'u')
 
         self.serialConnection.reset_input_buffer()
@@ -158,7 +158,7 @@ class CRPlot:
             try:
 
                 # get the timestamp before the data string, likely to align better with the actual reading
-                ts = datetime.now() 
+                ts = datetime.now()
                 line = self.serialConnection.readline().decode("utf-8")
 
                 if (line.startswith("USB_LOGGING")):
@@ -168,7 +168,7 @@ class CRPlot:
                         self.serialConnection.write(b'u')
                         self.serialConnection.flush()
                     continue
-    
+
                 try:
                     data = float(line)
                     if (True):# (data > -.1e-10):
@@ -193,7 +193,7 @@ class CRPlot:
                     error_count+=1;
                     if (line_count > 1000) and (error_count/line_count > 0.5):
                         logging.error("Error rate is too high ({} errors out of {} lines)".format(error_count, line_count))
-                        break                                    
+                        break
                     pass
 
             except:
@@ -204,7 +204,7 @@ class CRPlot:
         logging.info('Serial streaming terminating');
 
 
-    def textAmp(self, amp):        
+    def textAmp(self, amp):
         if (abs(amp) > 1.0):
             return "{:.3f} A".format(amp)
         if (abs(amp) > 0.001):
