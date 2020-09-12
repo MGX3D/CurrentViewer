@@ -1,0 +1,4 @@
+pyserial
+matplotlib
+mplcursors
+
