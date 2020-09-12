@@ -8,6 +8,7 @@ Example above is CurrentViewer in action (exported from the app itself).
 
 Note: CurrentViewer is not a replacement for an osciloscope, as the readings are done via the internal ADC in SAMD21 which has its limitations. But it might be more convenient way to use CurrentRanger. Sometimes the noise (Vpp) can be comparable with entry level oscilloscopes, but the measurements can be off: CurrentRanger has to be properly calibrated in order for the measurements to match what multimeter or oscilloscope displays.
 
+#
 ## Features:
 - Runs on Windows and Linux (MacOS coming soon)
 - It displays:
@@ -21,10 +22,16 @@ Note: CurrentViewer is not a replacement for an osciloscope, as the readings are
 - It can save the chart **animations as .GIF** - for a convenient way to publish measurements on the web. Look for *current0.gif, current1.gif, etc* in the current folder
 - **[Pause]** streaming if you want to zoom/pan into the data. The data is still being captured behind, when you resume you see an instant refresh.
 
-
+#
 ## Installation
 
-Recommended environment is Python3 (tested with 3.6+) with matplotlib installed. To install all the requirements automatically:
+First clone the repo locally
+
+```
+git clone https://github.com/MGX3D/CurrentViewer
+```
+
+Recommended environment is Python3 (tested with 3.6+) with matplotlib/mplcursors/pyserial installed. To install all the requirements automatically:
 
 ```
 pip install -r requirements.txt
@@ -34,6 +41,7 @@ or
 pip3 install -r requirements.txt
 ```
 
+#
 ## Running
 
 First you need to identify the COM port CurrentRanger is plugged into (eg COM3 or /dev/ttyACM0). CurrentViewer was only tested with direct USB connection (might work with BlueTooth already - but needs validation). 
@@ -53,6 +61,7 @@ If everything is working well you should see an image like this below (otherwise
 ![Screenshot](./images/screenshot1.png)
 
 
+#
 ## Known limitations
 
 - Some runtime errors on MacOS / Python 3.8.5 
@@ -63,6 +72,7 @@ If everything is working well you should see an image like this below (otherwise
 - Cannot zoom X axis (time) while the data is streaming - limitation in matplotlib, best to use [pause], zoom in, then resume
 - Cannot see microseconds - the data is captured with microsecond timestamps, unfortunately there seems to be a limitation in matplotlib in that it doesn't display it 
 
+#
 ## Troubleshooting
 
 **Note:** Do not direct support requests to LowPowerLab, this is not an official tool, it's provided AS-IS. This is a side-project for me (and first time dealing with matplotlib in particular, so I will try to address issues as time (and skill) allows :) 
@@ -87,6 +97,7 @@ If everything is working well you should see an image like this below (otherwise
 - ### Other issues?
     Check current_viewer.log and look for hints. If no luck, open an issue on github and attach the log.
 
+#
 ## Contributions
 
 Contributions are welcome (note the MIT license), best to fork the project and submit a PR when done. Try to keep the changes small so they are easier to merge.
