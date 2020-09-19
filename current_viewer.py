@@ -39,8 +39,7 @@ class CRPlot:
         logging.info("Trying to connect to port='{}' baud='{}'".format(port, speed))
         try:
             self.serialConnection = serial.Serial(self.port, self.baud, timeout=5)
-            print("Connected to {} at baud {}".format(port, speed))
-            logging.info("Connected.")
+            logging.info("Connected to {} at baud {}".format(port, speed))
         except serial.SerialException as e:
             logging.error("Error connecting to serial port: {}".format(e))
             return False;
@@ -60,12 +59,10 @@ class CRPlot:
                 wait_timeout -= 1
 
             if (self.sample_count == 0):
-                print("Error: No data samples received. Aborting")
-                logging.error("Timed out waiting for initial data")
+                logging.error("Error: No data samples received. Aborting")
                 return False
 
-            print("OK")
-            logging.info("Serial streaming started")
+            print("OK\n")
             return True
 
 
@@ -152,7 +149,7 @@ class CRPlot:
         error_count = 0;
         self.dataStartTS = datetime.now()
 
-        print("Streaming", flush=True)
+        logging.info("Starting USB streaming loop");
 
         while (self.stream_data):
             try:
@@ -164,24 +161,28 @@ class CRPlot:
                 if (line.startswith("USB_LOGGING")):
                     if (line.startswith("USB_LOGGING_DISABLED")):
                         # must have been left open by a different process/instance
-                        logging.info("Logging was already enabled. Re-enabling")
+                        logging.info("Logging was disabled. Re-enabling")
                         self.serialConnection.write(b'u')
                         self.serialConnection.flush()
                     continue
 
                 try:
                     data = float(line)
-                    if (True):# (data > -.1e-10):
-                        self.sample_count += 1
+                    self.sample_count += 1
+
+                    if (data >= 0.0):
                         self.data.append(data)
                         self.timestamps.append(ts)
 
                         if (self.sample_count % 1000 == 0):
-                            print("{}: '{}' -> {}".format(ts.strftime("%H:%M:%S.%f"), line.rstrip(), data))
+                            logging.debug("{}: '{}' -> {}".format(ts.strftime("%H:%M:%S.%f"), line.rstrip(), data))
                             dt = datetime.now() - self.dataStartTS;
-                            print("Read {} samples in {:.0f}ms  ({:.2f} samples/second)".format(self.sample_count, 1000*dt.total_seconds(), self.sample_count/dt.total_seconds()))
+                            logging.debug("Received {} samples in {:.0f}ms  ({:.2f} samples/second)".format(self.sample_count, 1000*dt.total_seconds(), self.sample_count/dt.total_seconds()))
                     else:
-                        logging.debug("UnexpectedSampleData='{}'".format(line))
+                        # this happens too often (negative values)
+                        self.data.append(1.0e-9)
+                        self.timestamps.append(ts)
+                        logging.warning("Unexpected value='{}'".format(line))
 
                 except KeyboardInterrupt:
                     logging.info('Terminated by user')
@@ -198,11 +199,15 @@ class CRPlot:
 
             except:
                 logging.error('Serial read error: {}'.format(sys.exc_info()))
+                error_count+=1;
+                if (line_count > 1000) and (error_count/line_count > 0.5):
+                    logging.error("Error rate is too high ({} errors out of {} lines)".format(error_count, line_count))
+                    break
 
         # stop streaming so the device shuts down if in auto mode
+        logging.info('Telling CR to stop USB streaming');
         self.serialConnection.write(b'u')
-        logging.info('Serial streaming terminating');
-
+        logging.info('Serial streaming terminated');
 
     def textAmp(self, amp):
         if (abs(amp) > 1.0):
@@ -238,7 +243,7 @@ class CRPlot:
 
 def main():
 
-    logging.basicConfig(filename='current_viewer.log',format='%(levelname)s:%(asctime)s:%(message)s', level=logging.DEBUG)
+    logging.basicConfig(filename='current_viewer.log',format='%(levelname)s:%(asctime)s:%(threadName)s:%(message)s', level=logging.DEBUG)
 
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
