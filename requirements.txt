@@ -1,4 +1,7 @@
 pyserial
 matplotlib
 mplcursors
+argparse
+numpy
+pandas
 
