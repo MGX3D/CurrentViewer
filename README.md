@@ -1,26 +1,25 @@
 # CurrentViewer
 
-CurrentViewer interactive data plot for [LowPowerLab CurrentRanger](https://github.com/LowPowerLab/CurrentRanger). It was designed to make it easier to capture and share power state profiles for IoT devices that swing between multiple power states (deep sleep, low power, full power).
+CurrentViewer interactive data plot for [LowPowerLab CurrentRanger](https://github.com/LowPowerLab/CurrentRanger). It was designed to make it easier to capture, save and share power state profiles for IoT devices that swing between multiple power states (deep sleep, low power, full power).
 
 ![Screenshot](./images/example1.gif)
 
-Example above is CurrentViewer in action (exported from the app itself).
+*Example above is CurrentViewer in action (exported from the app itself via GIF function).*
 
 Note: CurrentViewer is not a replacement for an osciloscope, as the readings are done via the internal ADC in SAMD21 [Microchip's ARM® Cortex®-M0+](https://www.microchip.com/wwwproducts/en/ATsamd21g18) which has its limitations. But it might be more convenient way to use CurrentRanger. Sometimes the noise (Vpp) can be comparable with entry level oscilloscopes, but the measurements can be off: CurrentRanger has to be properly calibrated in order for the measurements to match what multimeter or oscilloscope displays.
 
 #
 ## Features:
 - Runs on Windows and Linux (MacOS coming soon)
-- It displays:
-    - __SPS__ (Samples per Second) - how fast CurrentRanger sends samples over USB
-    - __Last__ measurement (noisy) - most recent reading
-    - __Average__ of the view (slow). The window buffer is currently set to last 10K measurements - this is easy to extend if needed
-    - Point __annotations__ (hover the mouse over a certain sample)
-- __Logaritmic plot__: makes it easy to read any swings from 1 nanoamp to 1 amp. Works with CurrentRanger in AUTORANGE as well as manual mode.
-- Should be able to display as fast as the instrument can measure and send data over USB-Serial: currently this is around __750-800 samples/second__ without the CR OLED module (and 650 samples/second with OLED on).
+- __Live Interactive chart__ with:
+    - __100k samples in view and can do millions__: the raw readings are __noise-filtered__ (sub-sampling and average) to improve visualization
+    - __Last Raw__ and __Window Average__ mesurements and __SPS__ (Samples per Second - how fast CurrentRanger sends samples over USB) 
+    - Point __annotations__: hover the mouse over a certain sample so see the exact value
+    - __Logaritmic plot__: makes it easy to read any swings from 1 nanoamp to 1 amp. Works with CurrentRanger in AUTORANGE as well as manual mode.
+- __Data Export__: __CSV__ and __JSON__ but it can also  save the **animated chart as .GIF** - for a convenient way to publish measurements on the web. Look for *current0.gif, current1.gif, etc* in the current folder
+- Command line options to tune for performance or batch mode (headless logging). Should be able to display as fast as the instrument can measure and send data over USB-Serial: currently this is around __600-800 samples/second__ (depends on firmware and features enabled on CR)
 - Automatically __turns on streaming on CurrentRanger__ (and if you use the new firmware feature with SMART AutoOff now the instrument will stay on as long as CurrentViewer is connected to it).
-- It can save the chart **animations as .GIF** - for a convenient way to publish measurements on the web. Look for *current0.gif, current1.gif, etc* in the current folder
-- **[Pause]** streaming if you want to zoom/pan into the data. The data is still being captured behind, when you resume you see an instant refresh.
+- **[Pause]** streaming if you want to zoom/pan into the data. The data is still being captured behind (live buffer), when you resume you see an instant refresh
 
 #
 ## Installation
@@ -44,7 +43,7 @@ pip3 install -r requirements.txt
 #
 ## Running
 
-First you need to identify the COM port CurrentRanger is plugged into (eg COM3 or /dev/ttyACM0). CurrentViewer was only tested with direct USB connection (might work with BlueTooth already - but needs validation). 
+First you need to identify the COM port CurrentRanger is plugged into (eg COM3 or /dev/ttyACM0). CurrentViewer is typically being tested with direct USB connection only but it should work with BlueTooth as well (however BT is not an area of focus for CurrentViewer due to lower bandwidth)
 
 On Windows:
 ```
@@ -56,10 +55,11 @@ On Linux:
 python current_viewer.py -p /dev/ttyACM0
 ```
 
-If everything is working well you should see an image like this below (otherwise the current_viewer.log will have more information). There is also a console window (and a log: current_viewer.log) that displays more info.
+If everything is working well you should see an image like this below:
 
 ![Screenshot](./images/screenshot1.png)
 
+There is also a console window which displays regular SPS and a debugging log file - **current_viewer.log** that displays more details, down to individual sample errors (eg negative readings, wire corruptions, etc). For the time being the logging is enabled by default to help with diagnostics, but there is an option to disable it (--no-log)
 
 #
 ## Command line options
@@ -102,9 +102,9 @@ optional arguments:
                         (default:current_viewer.log)
 ```
 
-## Examples:
+## Usage Examples:
 
-### Export data only, no GUI:
+### Export CSV data only, no GUI:
 
 ```
 python current_viewer.py -p COM9 -g --out data.csv
@@ -118,24 +118,24 @@ This is useful for automation scenarios, where data needs to be logged for long 
 python current_viewer.py -p COM9 -g -n -c -vvv
 ```
 
-The file log (current_viewer.log) are now automatically rotated so they don't use the entire disk space, but can still be noisy (eg protocol) and generate lots of writes. In some cases (for example SD cards with limited write cycles) this might be undesirable, so now it's possible to disable disk logging completely. 
+The file log (current_viewer.log) is now capped to 1MB and automatically rotated so it won't use the entire disk space by accident, but even then it can still be noisy (eg protocol errors) and generate lots of IO/writes. In some cases - for example SD/USB cards with limited write cycles - this might be undesirable, so now it's possible to disable disk logging completely with -n / --no-log option.
 
 
-### Low CPU GUI: daw 100 samples only (default: 2048), 1 refresh/second (default 15)
+### Low CPU GUI: draw 100 samples only, 1 refresh/second (default 15)
 ```
 python current_viewer.py -p COM9 -m 100 -r 1000
 ```
 
-The charting library is CPU intensive, so setting a slower refresh (1fps instead of 15fps) or drawing fewer samples (100 instead of 2048) can reduce this. The other parameter that can affect performance (memory consumption) is -b/--buffer, this is the in-memory buffer, this represents the maximum view of the chart (-m is the # of data points in that range). For example if your CR is sending 600 samples/second at 100K sample buffer you get a history of roughly 3 minutes. Note that this setting does not affect the logging to CSV/JSON: exported data is saved to file directly from the acquisition loop so in theory should work for hours or days.
+The charting library is CPU intensive, so setting a slower refresh (1fps instead of 15fps) or drawing fewer samples 100 (instead of 2048 which is the default with 4K monitors in mind) can reduce CPU consumption and increase rendering speed. The other parameter that can affect performance - in this case memory consumption - is -b/--buffer, this is the in-memory buffer, this represents the maximum view of the chart (-m is the # of data points in that range). For example if your CR is sending 600 samples/second at 100K sample buffer you get a history of roughly 3 minutes. Note that the buffer setting only affects the chart (how much is in view) and it does not affect the logging to CSV/JSON: exported data is saved to file directly from the acquisition loop so in theory should work for hours or days without issue.
 
 #
 ## Data Export
 
-There are currently two data formats that CurrentViewer can save: CSV and JSON. See options --out and --format
+There are currently two data formats that CurrentViewer can save: CSV and JSON. See options --out and --format. If the format is not specified CurrentViewer tries to guess it based on extension (ie *--out foo.json* or *--out bar.csv* should be sufficient)
 
-### Example CSV:
+### CSV Example:
 
-```
+```CSV
 Timestamp, Amps
 2020-11-09 11:21:08.510715,-0.00081
 2020-11-09 11:21:08.526342,-0.0004
@@ -157,9 +157,9 @@ Timestamp, Amps
 ```
 
 
-### Example JSON
+### JSON Example
 
-```
+```json
 {
 "data":[
 {"time":"2020-11-09 11:51:08.439275","amps":"4.07e-08"},
@@ -195,19 +195,20 @@ Timestamp, Amps
 #
 ## Troubleshooting
 
-**Note:** Do not direct support requests to LowPowerLab, this is not an official tool, it's provided AS-IS. This is a side-project for me (and first time dealing with matplotlib in particular, so I will try to address issues as time (and skill) allows :) 
+**Note:** Do not direct CurrentViewer support requests to LowPowerLab, this is not an official tool, it's provided AS-IS. This is a side-project for me (and first time dealing with matplotlib in particular, so I will try to address issues as time (and skill) allows :) 
 
 - ### Python dependencies
-    This was tested with Python 3.6 (on Windows) and 3.8.5 (in Linux). Currently not working on MacOS 10.15 (although it should - but no time to debug).
+    This was tested with Python 3.6-3.8 (on Windows) and 3.8.5 (in Linux). Currently not working on MacOS 10.15 (although it should - but no time to debug).
     The dependencies that are critical and might break in the future are:
     - matplotlib (tested with 3.1.1)
     - mplcursors (tested with 0.3)
+    - numpy / pandas - these are new dependencies added in 1.0.1. There are already known issues with Python 3.9 and matplotlib/numpy, if you run into those stick to 3.8 or use virtual environments
 
 - ### Serial port errors
     Make sure you can connect to the COM port (using Arduino, Putty, etc) and you see the CurrentRanger menu (type '?'). Then enable USB streaming (command 'u') and check if the data is actually coming in the expected exponent format (see below)
 
 - ### Data Errors
-    CurrentViewer expects only measurements in the exponent format ('-0.81e-3') streamed over USB. if you have other things enabled (such as Touch debugging) you might see a lot of errors or inconsistent data. CurrentViewer measures the error rate and if above a certain threshold will stop. 
+    CurrentViewer expects only measurements in the exponent format ('-0.81e-3') streamed over USB. if you have other things enabled (such as Touch debugging) you might see a lot of errors or inconsistent data. CurrentViewer measures the error rate and if above a certain threshold (50%) will stop. 
 
     I typically test with my branch of the firmware (https://github.com/MGX3D/CurrentRanger) as I only have one CurrentRanger but I try to not rely on features that are not available in the official firmware.
 
