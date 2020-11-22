@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from threading import Thread
 from os import path
 
-version = '1.0.1'
+version = '1.0.2'
 
 port = ''
 baud = 115200
@@ -323,6 +323,7 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase logging verbosity (can be specified multiple times)")
     parser.add_argument("-c", "--console", default=False, action="store_true", help="Show the debug messages on the console")
     parser.add_argument("-n", "--no-log", default=False, action="store_true", help=f"Disable debug logging (enabled by default)")
+    parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: 1Mb)")
     parser.add_argument("-l", "--log-file", nargs=1, help=f"Set the debug log file name (default:{logfile})")
 
     parser.set_defaults(gui=True)
@@ -332,12 +333,17 @@ def main():
 
     print("CurrentViewer v" + version)
 
+    log_size = 1024*1024;
+
     parser = init_argparse()
     args = parser.parse_args()
 
     if args.log_file:
         global logfile
         logfile = args.log_file[0]
+
+    if args.log_size:
+        log_size = 1024*1024*args.log_size[0]
 
     if args.refresh:
         global refresh_interval
@@ -367,7 +373,7 @@ def main():
         logging.getLogger('').setLevel(logging.DEBUG)
 
     if not args.no_log:
-        file_logger = RotatingFileHandler(logfile, maxBytes=1024*1024, backupCount=1)
+        file_logger = RotatingFileHandler(logfile, maxBytes=log_size, backupCount=1)
         file_logger.setLevel(logging.DEBUG)
         file_logger.setFormatter(logging.Formatter('%(levelname)s:%(asctime)s:%(threadName)s:%(message)s'))
         logging.getLogger('').addHandler(file_logger)

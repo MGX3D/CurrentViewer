@@ -67,7 +67,7 @@ There is also a console window which displays regular SPS and a debugging log fi
 A number of options can be passed in command line to control export data to CSV/JSON, to control the charting speed and behavior, etc
 
 ```
-CurrentViewer v1.0.1
+CurrentViewer v1.0.2
 usage: current_viewer.py -p <port> [OPTION]
 
 CurrentRanger R3 Viewer
@@ -97,6 +97,7 @@ optional arguments:
                         times)
   -c, --console         Show the debug messages on the console
   -n, --no-log          Disable debug logging (enabled by default)
+  --log-size <Mb>       Set the log maximum size in megabytes (default: 1Mb)
   -l LOG_FILE, --log-file LOG_FILE
                         Set the debug log file name
                         (default:current_viewer.log)
@@ -127,6 +128,14 @@ python current_viewer.py -p COM9 -m 100 -r 1000
 ```
 
 The charting library is CPU intensive, so setting a slower refresh (1fps instead of 15fps) or drawing fewer samples 100 (instead of 2048 which is the default with 4K monitors in mind) can reduce CPU consumption and increase rendering speed. The other parameter that can affect performance - in this case memory consumption - is -b/--buffer, this is the in-memory buffer, this represents the maximum view of the chart (-m is the # of data points in that range). For example if your CR is sending 600 samples/second at 100K sample buffer you get a history of roughly 3 minutes. Note that the buffer setting only affects the chart (how much is in view) and it does not affect the logging to CSV/JSON: exported data is saved to file directly from the acquisition loop so in theory should work for hours or days without issue.
+
+### Increased log size for debugging
+
+```
+python current_viewer.py -p COM9 -vvv --log-size 128
+```
+
+This increases the log maximum size to 128 megabytes from the default of 1 (alteratively --log-size 0.1 would cap the log at ~100Kb). It could be useful in capturing hard to reproduce errors. Note there are two logs on disk: the current one (current_viewer.log) and the rotated one (current_viewer.log.1), so the total log on disk is actually double this parameter.
 
 #
 ## Data Export
