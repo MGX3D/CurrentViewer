@@ -14,13 +14,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import mplcursors
 import matplotlib.animation as animation
-from matplotlib.dates import MinuteLocator, SecondLocator, DateFormatter
+from matplotlib.dates import num2date, MinuteLocator, SecondLocator, DateFormatter
 from matplotlib.widgets import Button
 from datetime import datetime, timedelta
 from threading import Thread
 from os import path
 
-version = '1.0.2'
+version = '1.0.3'
 
 port = ''
 baud = 115200
@@ -102,6 +102,7 @@ class CRPlot:
         else:
             self.bpause.label = 'Pause'
 
+
     def saveAnimation(self, state):
         logging.debug("save {}".format(state))
         filename = None
@@ -117,7 +118,7 @@ class CRPlot:
 
     def chartSetup(self, refresh_interval=100):
         plt.style.use('dark_background')
-        fig = plt.figure(num="Current Viewer")
+        fig = plt.figure(num=f"Current Viewer {version}")
         fig.autofmt_xdate()
         self.ax = plt.axes()
         ax = self.ax
@@ -134,9 +135,22 @@ class CRPlot:
         plt.xticks(rotation=30)
         ax.set_xlim(datetime.now(), datetime.now() + timedelta(seconds=10))
         ax.grid(axis="x", color="green", alpha=.3, linewidth=2, linestyle=":")
+
         #ax.xaxis.set_major_locator(SecondLocator())
-        #ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
-        ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S.%f'))
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+
+        def on_xlims_change(event_ax):
+            logging.debug("Interactive zoom: {} .. {}".format(num2date(event_ax.get_xlim()[0]), num2date(event_ax.get_xlim()[1])))
+
+            chart_len = num2date(event_ax.get_xlim()[1]) - num2date(event_ax.get_xlim()[0])
+
+            if chart_len.total_seconds() < 5:
+                self.ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S.%f'))
+            else:
+                self.ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+                self.ax.xaxis.set_minor_formatter(DateFormatter('%H:%M:%S.%f'))
+
+        ax.callbacks.connect('xlim_changed', on_xlims_change)
 
         lines = ax.plot([], [], label="Current")[0]
 
@@ -183,7 +197,7 @@ class CRPlot:
             try:
                 # get the timestamp before the data string, likely to align better with the actual reading
                 ts = datetime.now()
-                line = self.serialConnection.readline().decode("utf-8")#.strip()
+                line = self.serialConnection.readline().decode("utf-8")
 
                 if (line.startswith("USB_LOGGING")):
                     if (line.startswith("USB_LOGGING_DISABLED")):
@@ -202,20 +216,20 @@ class CRPlot:
                     elif save_format == 'JSON':
                         save_file.write("{}{{\"time\":\"{}\",\"amps\":\"{}\"}}".format(',\n' if self.sample_count>1 else '', ts, data))
 
-                if (data >= 0.0):
-                    self.timestamps.append(np.datetime64(ts))
-                    self.data.append(data)
-
-                else:
+                if data < 0.0:
                     # this happens too often (negative values)
                     self.timestamps.append(np.datetime64(ts))
                     self.data.append(1.0e-10)
-                    logging.warning("Unexpected value='{}'".format(line))
+                    logging.warning("Unexpected value='{}'".format(line.strip()))
+                else:
+                    self.timestamps.append(np.datetime64(ts))
+                    self.data.append(data)
+                    logging.debug(f"#{self.sample_count}:{ts}: {data}")
 
                 if (self.sample_count % 1000 == 0):
                     logging.debug("{}: '{}' -> {}".format(ts.strftime("%H:%M:%S.%f"), line.rstrip(), data))
                     dt = datetime.now() - self.dataStartTS
-                    logging.debug("Received {} samples in {:.0f}ms ({:.2f} samples/second)".format(self.sample_count, 1000*dt.total_seconds(), self.sample_count/dt.total_seconds()))
+                    logging.info("Received {} samples in {:.0f}ms ({:.2f} samples/second)".format(self.sample_count, 1000*dt.total_seconds(), self.sample_count/dt.total_seconds()))
                     print("Received {} samples in {:.0f}ms ({:.2f} samples/second)".format(self.sample_count, 1000*dt.total_seconds(), self.sample_count/dt.total_seconds()))
 
             except KeyboardInterrupt:
@@ -364,26 +378,26 @@ def main():
             print("Command line error: Buffer size cannot be smaller than the chart sample size", file=sys.stderr)
             return -1
 
-    logging_level = logging.DEBUG if args.verbose>1 else (logging.INFO if args.verbose>0 else logging.WARNING)
+    logging_level = logging.DEBUG if args.verbose>2 else (logging.INFO if args.verbose>1 else (logging.WARNING if args.verbose>0 else logging.ERROR))
 
     # disable matplotlib logging for fonts, seems to be quite noisy
     logging.getLogger('matplotlib.font_manager').disabled = True
 
     if args.console or not args.no_log:
-        logging.getLogger('').setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     if not args.no_log:
         file_logger = RotatingFileHandler(logfile, maxBytes=log_size, backupCount=1)
         file_logger.setLevel(logging.DEBUG)
         file_logger.setFormatter(logging.Formatter('%(levelname)s:%(asctime)s:%(threadName)s:%(message)s'))
-        logging.getLogger('').addHandler(file_logger)
+        logging.getLogger().addHandler(file_logger)
 
     if args.console:
         print("Setting console logging")
         console_logger = logging.StreamHandler()
         console_logger.setLevel(logging_level)
         console_logger.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
-        logging.getLogger('').addHandler(console_logger)
+        logging.getLogger().addHandler(console_logger)
 
 
     global save_file
