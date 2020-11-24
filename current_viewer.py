@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from threading import Thread
 from os import path
 
-version = '1.0.3'
+version = '1.0.4'
 
 port = ''
 baud = 115200
@@ -44,6 +44,8 @@ median_filter = 0;
 # 
 save_file = None;
 save_format = None;
+
+connected_device = "CurrentRanger"
 
 class CRPlot:
     def __init__(self, sample_buffer = 100):
@@ -98,34 +100,39 @@ class CRPlot:
         logging.debug("pause {}".format(state))
         self.pause_chart = not self.pause_chart
         if self.pause_chart:
-            self.bpause.label = 'Resume'
+            self.ax.set_title('<Paused>', color="yellow")
+            self.bpause.label.set_text('Resume')
         else:
-            self.bpause.label = 'Pause'
-
+            self.ax.set_title(f"Streaming: {connected_device}", color="white")
+            self.bpause.label.set_text('Pause')
 
     def saveAnimation(self, state):
         logging.debug("save {}".format(state))
-        filename = None
 
+        self.bsave.label.set_text('Saving...')
+        plt.gcf().canvas.draw()
+        filename = None
         while True:
             filename = 'current' + str(self.animation_index) + '.gif'
             self.animation_index += 1
             if not path.exists(filename):
                 break
-
         logging.info("Animation saved to '{}'".format(filename))
         self.anim.save(filename, writer='imagemagick', fps=self.framerate)
+        self.bsave.label.set_text('GIF')
 
     def chartSetup(self, refresh_interval=100):
         plt.style.use('dark_background')
-        fig = plt.figure(num=f"Current Viewer {version}")
-        fig.autofmt_xdate()
+        fig = plt.figure(num=f"Current Viewer {version}", figsize=(10, 6))
         self.ax = plt.axes()
         ax = self.ax
 
-        ax.set_title('Current Ranger')
+        ax.set_title(f"Streaming: {connected_device}", color="white")
 
-        ax.set_ylabel("Current draw")
+        fig.text (0.2, 0.88, f"CurrentViewer {version}", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.7)
+        fig.text (0.78, 0.88, f"github.com/MGX3D/CurrentViewer", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.7)
+
+        ax.set_ylabel("Current draw (Amps)")
         ax.set_yscale("log", nonpositive='clip')
         ax.set_ylim(1e-10, 1e1)
         plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
@@ -155,6 +162,7 @@ class CRPlot:
         lines = ax.plot([], [], label="Current")[0]
 
         lastText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
+        statusText = ax.text(0.50, 0.50, '', transform=ax.transAxes)
         self.anim = animation.FuncAnimation(fig, self.getSerialData, fargs=(lines, plt.legend(), lastText), interval=refresh_interval)
 
         plt.legend(loc="upper right", framealpha=0.5)
@@ -165,9 +173,9 @@ class CRPlot:
         self.bpause.label.set_color('yellow')
 
         aanimation = plt.axes([0.91, 0.25, 0.08, 0.07])
-        bsave = Button(aanimation,  'GIF', color='0.2', hovercolor='0.1')
-        bsave.on_clicked(self.saveAnimation)
-        bsave.label.set_color('yellow')
+        self.bsave = Button(aanimation, 'GIF', color='0.2', hovercolor='0.1')
+        self.bsave.on_clicked(self.saveAnimation)
+        self.bsave.label.set_color('yellow')
 
         crs = mplcursors.cursor(ax, hover=True)
         @crs.connect("add")
@@ -191,6 +199,9 @@ class CRPlot:
         error_count = 0
         self.dataStartTS = datetime.now()
 
+        # data timeout threshold (seconds) - bails out of no samples received
+        data_timeout_ths = 0.5;
+
         logging.info("Starting USB streaming loop")
 
         while (self.stream_data):
@@ -209,6 +220,7 @@ class CRPlot:
 
                 data = float(line)
                 self.sample_count += 1
+                line_count += 1
 
                 if save_file:
                     if save_format == 'CSV':
@@ -219,7 +231,7 @@ class CRPlot:
                 if data < 0.0:
                     # this happens too often (negative values)
                     self.timestamps.append(np.datetime64(ts))
-                    self.data.append(1.0e-10)
+                    self.data.append(1.0e-11)
                     logging.warning("Unexpected value='{}'".format(line.strip()))
                 else:
                     self.timestamps.append(np.datetime64(ts))
@@ -234,29 +246,35 @@ class CRPlot:
 
             except KeyboardInterrupt:
                 logging.info('Terminated by user')
-                self.stream_data = False
                 break
 
             except ValueError:
                 logging.error("Invalid data format: '{}': {}".format(line, sys.exc_info()))
                 error_count += 1
-                if (line_count > 1000) and (error_count/line_count > 0.5):
-                    logging.error("Error rate is too high ({} errors out of {} lines)".format(error_count, line_count))
+                last_sample = (np.datetime64(datetime.now()) - (self.timestamps[-1] if self.sample_count else np.datetime64(datetime.now())))/np.timedelta64(1, 's')
+                if (error_count > 100) and  last_sample > data_timeout_ths:
+                    logging.error("Aborting. Error rate is too high {} errors, last valid sample received {} seconds ago".format(error_count, last_sample))
+                    self.stream_data = False
                     break
                 pass
 
             except serial.SerialException as e:
                 logging.error('Serial read error: {}: {}'.format(e.strerror, sys.exc_info()))
-                error_count += 1
-                if (line_count > 1000) and (error_count/line_count > 0.5):
-                    logging.error("Error rate is too high ({} errors out of {} lines)".format(error_count, line_count))
-                    break
+                self.stream_data = False
+                break
+
+        self.stream_data = False
 
         # stop streaming so the device shuts down if in auto mode
         logging.info('Telling CR to stop USB streaming')
-        self.serialConnection.write(b'u')
+        
+        try:
+            # this will throw if the device has failed.disconnected already
+            self.serialConnection.write(b'u')
+        except:
+            logging.warning('Was not able to clean disconnect from the device')
+
         logging.info('Serial streaming terminated')
-        self.stream_data = False
 
     def textAmp(self, amp):
         if (abs(amp) > 1.0):
@@ -270,6 +288,12 @@ class CRPlot:
 
     def getSerialData(self, frame, lines, legend, lastText):
         if (self.pause_chart or len(self.data) < 2):
+            lastText.set_text('')
+            return
+
+        if not self.stream_data:
+            self.ax.set_title('<Disconnected>', color="red")
+            lastText.set_text('')
             return
 
         dt = datetime.now() - self.dataStartTS
@@ -283,18 +307,29 @@ class CRPlot:
         subsamples = max(1, min(max_supersampling, int(sample_set_size/chart_max_samples)))
         
         # Sub-sampling for longer window views without the redraw perf impact
-        # $TODO: atempt to filter the buffer via median - that way we also achieve some denoising 
         for i in range(0, chart_max_samples):
             sample_index = int(sample_set_size*i/chart_max_samples)
             timestamps.append(self.timestamps[sample_index])
-            #samples.append(sum(self.data[i] for i in range(sample_index, sample_index+subsamples))/subsamples)
             supersample = np.array([self.data[i] for i in range(sample_index, sample_index+subsamples)])
+            samples.append(np.median(supersample) if median_filter else np.average(supersample))
 
-            samples.append(np.median(supersample) if median_filter else  np.average(supersample))
-             
-        
         self.ax.set_xlim(timestamps[0], timestamps[-1])
-        lastText.set_text('{:.1f} SPS'.format(self.sample_count/dt.total_seconds()) )
+
+        # some machines max out at 100fps, so this should react in 0.5-5 seconds to actual speed
+        sps_samples = min(512, sample_set_size);
+        dt_sps = (np.datetime64(datetime.now()) - self.timestamps[-sps_samples])/np.timedelta64(1, 's');
+
+        # if more than 1 second since last sample, automatically set SPS to 0 so we don't have until it slowly decays to 0
+        sps = sps_samples/dt_sps if ((np.datetime64(datetime.now()) - self.timestamps[-1])/np.timedelta64(1, 's')) < 1 else 0.0
+        lastText.set_text('{:.1f} SPS'.format(sps))
+        if sps > 500:
+            lastText.set_color("white")
+        elif sps > 100:
+            lastText.set_color("yellow")
+        else:
+            lastText.set_color("red")
+
+
         logging.debug("Drawing chart: range {}@{} .. {}@{}".format(samples[0], timestamps[0], samples[-1], timestamps[-1]))
         lines.set_data(timestamps, samples)
         self.ax.legend(labels=['Last: {}\nAvg: {}'.format( self.textAmp(samples[-1]), self.textAmp(sum(samples)/len(samples)))])
