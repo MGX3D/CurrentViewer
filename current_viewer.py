@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from threading import Thread
 from os import path
 
-version = '1.0.4'
+version = '1.0.5'
 
 port = ''
 baud = 115200
@@ -208,7 +208,7 @@ class CRPlot:
             try:
                 # get the timestamp before the data string, likely to align better with the actual reading
                 ts = datetime.now()
-                line = self.serialConnection.readline().decode("utf-8")
+                line = self.serialConnection.readline().decode("ansi")
 
                 if (line.startswith("USB_LOGGING")):
                     if (line.startswith("USB_LOGGING_DISABLED")):
