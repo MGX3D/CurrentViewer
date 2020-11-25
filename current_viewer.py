@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from threading import Thread
 from os import path
 
-version = '1.0.5'
+version = '1.0.6'
 
 port = ''
 baud = 115200
@@ -130,7 +130,7 @@ class CRPlot:
         ax.set_title(f"Streaming: {connected_device}", color="white")
 
         fig.text (0.2, 0.88, f"CurrentViewer {version}", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.7)
-        fig.text (0.78, 0.88, f"github.com/MGX3D/CurrentViewer", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.7)
+        fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
 
         ax.set_ylabel("Current draw (Amps)")
         ax.set_yscale("log", nonpositive='clip')
@@ -139,9 +139,9 @@ class CRPlot:
         ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
 
         ax.set_xlabel("Time")
-        plt.xticks(rotation=30)
+        plt.xticks(rotation=20)
         ax.set_xlim(datetime.now(), datetime.now() + timedelta(seconds=10))
-        ax.grid(axis="x", color="green", alpha=.3, linewidth=2, linestyle=":")
+        ax.grid(axis="x", color="green", alpha=.4, linewidth=2, linestyle=":")
 
         #ax.xaxis.set_major_locator(SecondLocator())
         ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
@@ -200,7 +200,10 @@ class CRPlot:
         self.dataStartTS = datetime.now()
 
         # data timeout threshold (seconds) - bails out of no samples received
-        data_timeout_ths = 0.5;
+        data_timeout_ths = 0.5
+
+        line = None
+        device_data = bytearray()
 
         logging.info("Starting USB streaming loop")
 
@@ -208,7 +211,27 @@ class CRPlot:
             try:
                 # get the timestamp before the data string, likely to align better with the actual reading
                 ts = datetime.now()
-                line = self.serialConnection.readline().decode("ansi")
+
+                chunk_len = device_data.find(b"\n")
+                if chunk_len >= 0:
+                    line = device_data[:chunk_len]
+                    device_data = device_data[chunk_len+1:]
+                else:
+                    line = None
+                    while line == None and self.stream_data:
+                        chunk_len = max(1, min(4096, self.serialConnection.in_waiting))
+                        chunk = self.serialConnection.read(chunk_len)
+                        chunk_len = chunk.find(b"\n")
+                        if chunk_len >= 0:
+                            line = device_data + chunk[:chunk_len]
+                            device_data[0:] = chunk[chunk_len+1:]
+                        else:
+                            device_data.extend(chunk)
+
+                if line == None:
+                    continue
+
+                line = line.decode("ansi")
 
                 if (line.startswith("USB_LOGGING")):
                     if (line.startswith("USB_LOGGING_DISABLED")):
