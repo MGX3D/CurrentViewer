@@ -199,7 +199,6 @@ Timestamp, Amps
 - Not tested with the BlueTooth add-on yet
 - Cannot always put the device in a predictable USB streaming mode (check the troubleshooting steps below)
 - Negative data (or noisy data) - this is what's coming from the device. As the firmware improves (Felix has some ideas) this will improve as well.
-- Cannot zoom X axis (time) while the data is streaming - limitation in matplotlib, best to use [pause], zoom in, then resume
 
 #
 ## Troubleshooting
@@ -213,6 +212,8 @@ Timestamp, Amps
     - mplcursors (tested with 0.3)
     - numpy / pandas - these are new dependencies added in 1.0.1. There are already known issues with Python 3.9 and matplotlib/numpy, if you run into those stick to 3.8 or use virtual environments
 
+    If you encounter errors with installing numpy or matplotlib, be sure to check out this full thread (and the temporary workaround) https://developercommunity.visualstudio.com/solutions/1257144/view.html
+
 - ### Serial port errors
     Make sure you can connect to the COM port (using Arduino, Putty, etc) and you see the CurrentRanger menu (type '?'). Then enable USB streaming (command 'u') and check if the data is actually coming in the expected exponent format (see below)
 
@@ -220,6 +221,13 @@ Timestamp, Amps
     CurrentViewer expects only measurements in the exponent format ('-0.81e-3') streamed over USB. if you have other things enabled (such as Touch debugging) you might see a lot of errors or inconsistent data. CurrentViewer measures the error rate and if above a certain threshold (50%) will stop. 
 
     I typically test with my branch of the firmware (https://github.com/MGX3D/CurrentRanger) as I only have one CurrentRanger but I try to not rely on features that are not available in the official firmware.
+
+- ### Device shutting down after 10 minutes
+
+    Make sure your CurrentRanger is set to auto-off=SMART (make sure you have firmware 1.0.0 or newer, connect to the port and send 'a' command until it says "AUTOOF_SMART" then confirm with '?' - the setting will be now persisted in EEPROM)
+
+    ![auto-off](./images/auto_off.png)
+
 
 - ### Other issues?
     Check current_viewer.log (and its rotate log current_viewer.log.1) and look for hints. If no luck, open an issue on github and attach the log(s). Do describe your hardware setup as well, and perhaps check how the device behaves with other tools (Arduino, Putty, etc)
