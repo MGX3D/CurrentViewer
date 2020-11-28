@@ -231,7 +231,7 @@ class CRPlot:
                 if line == None:
                     continue
 
-                line = line.decode("ansi")
+                line = line.decode(encoding="ascii", errors="strict")
 
                 if (line.startswith("USB_LOGGING")):
                     if (line.startswith("USB_LOGGING_DISABLED")):
