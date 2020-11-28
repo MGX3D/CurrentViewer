@@ -2,6 +2,11 @@
 
 CurrentViewer interactive data plot for [LowPowerLab CurrentRanger](https://github.com/LowPowerLab/CurrentRanger). It was designed to make it easier to capture, save and share power state profiles for IoT devices that swing between multiple power states (deep sleep, low power, full power).
 
+It works on:
+  - Windows 10
+  - Linux
+  - Raspberry Pi
+
 ![Screenshot](./images/example1.gif)
 
 *Example above is CurrentViewer in action (exported from the app itself via GIF function).*
@@ -33,7 +38,7 @@ git clone https://github.com/MGX3D/CurrentViewer
 Recommended environment is Python3 (tested with 3.6+) with matplotlib/mplcursors/pyserial installed. To install all the requirements automatically:
 
 ```
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 or
 ```
@@ -47,12 +52,12 @@ First you need to identify the COM port CurrentRanger is plugged into (eg COM3 o
 
 On Windows:
 ```
-python current_viewer.py -p COM9
+python3 current_viewer.py -p COM9
 ```
 
-On Linux:
+On Linux/Raspberry:
 ```
-python current_viewer.py -p /dev/ttyACM0
+python3 current_viewer.py -p /dev/ttyACM0
 ```
 
 If everything is working well you should see an image like this below:
@@ -206,7 +211,7 @@ Timestamp, Amps
 **Note:** Do not direct CurrentViewer support requests to LowPowerLab, this is not an official tool, it's provided AS-IS. This is a side-project for me (and first time dealing with matplotlib in particular, so I will try to address issues as time (and skill) allows :) 
 
 - ### Python dependencies
-    This was tested with Python 3.6-3.8 (on Windows) and 3.8.5 (in Linux). Currently not working on MacOS 10.15 (although it should - but no time to debug).
+    This was tested with Python 3.6-3.8 (on Windows 10), 3.7.3 (Linux ARM / Rasppberry), 3.8.5 (in Linux x64) . Currently not working on MacOS 10.15 (although it should - but no time to debug).
     The dependencies that are critical and might break in the future are:
     - matplotlib (tested with 3.1.1)
     - mplcursors (tested with 0.3)

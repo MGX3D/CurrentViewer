@@ -1,7 +1,6 @@
-pyserial
-matplotlib
+pyserial>=3.4
+matplotlib>=3.3.0
 mplcursors
 argparse
-numpy
-pandas
-
+numpy>=1.16.2
+pandas>=1.1.4

@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from threading import Thread
 from os import path
 
-version = '1.0.6'
+version = '1.0.7'
 
 port = ''
 baud = 115200
